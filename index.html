@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>weRec Music Disovery Tool</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .card {
+      background: #1e293b;
+      padding: 2rem;
+      border-radius: 12px;
+      width: 400px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 0.7rem;
+      margin-top: 0.5rem;
+      border-radius: 6px;
+      border: none;
+    }
+
+    input {
+      background: #334155;
+      color: white;
+    }
+
+    button {
+      background: #22c55e;
+      color: black;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 1rem;
+    }
+
+    button:hover {
+      background: #16a34a;
+    }
+
+    ul {
+      margin-top: 1rem;
+      padding-left: 1rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>weRec The Music Disovery Tool</h1>
+
+    <input id="artists" placeholder="Favorite artists (e.g. Drake, Radiohead)" />
+    <input id="genres" placeholder="Genres (e.g. hip hop, indie)" />
+    <input id="mood" placeholder="Mood (e.g. chill, energetic)" />
+
+    <button onclick="getRecommendations()">Get Recommendations</button>
+
+    <div id="results" style="display:flex; flex-direction:column; gap:1rem; margin-top:1rem;"></div>
+  </div>
+
+  <script>
+    async function getRecommendations() {
+    const artists = document.getElementById("artists").value;
+    const genres = document.getElementById("genres").value;
+    const mood = document.getElementById("mood").value;
+
+    const resultsDiv = document.getElementById("results");
+    resultsDiv.innerHTML = "<p>Loading...</p>";
+
+    try {
+      const response = await fetch("/api/index", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ artists, genres, mood })
+      });
+
+      const data = await response.json();
+      resultsDiv.innerHTML = "";
+
+      data.forEach(song => {
+        const card = document.createElement("div");
+        card.style.display = "flex";
+        card.style.alignItems = "center";
+        card.style.background = "#1e293b";
+        card.style.padding = "0.8rem";
+        card.style.borderRadius = "10px";
+        card.style.boxShadow = "0 2px 10px rgba(0,0,0,0.3)";
+        card.style.gap = "0.8rem";
+
+        const img = document.createElement("img");
+        img.src = song.album_image_url || "";
+        img.width = 64;
+        img.height = 64;
+        img.style.borderRadius = "6px";
+
+        const info = document.createElement("div");
+        info.innerHTML = `
+          <strong>${song.song}</strong><br>
+          ${song.artist}<br>
+          <a href="${song.spotify_url}" target="_blank" style="color:#38bdf8;">Listen on Spotify</a>
+        `;
+
+        card.appendChild(img);
+        card.appendChild(info);
+        resultsDiv.appendChild(card);
+      });
+
+    } catch (err) {
+      resultsDiv.innerHTML = "<p>Backend not connected yet.</p>";
+    }
+  }
+  </script>
+
+</body>
+</html>
