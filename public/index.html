@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Music Recommender</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .card {
+      background: #1e293b;
+      padding: 2rem;
+      border-radius: 12px;
+      width: 400px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 0.7rem;
+      margin-top: 0.5rem;
+      border-radius: 6px;
+      border: none;
+    }
+
+    input {
+      background: #334155;
+      color: white;
+    }
+
+    button {
+      background: #22c55e;
+      color: black;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 1rem;
+    }
+
+    button:hover {
+      background: #16a34a;
+    }
+
+    ul {
+      margin-top: 1rem;
+      padding-left: 1rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>🎵 AI Music Recommender</h1>
+
+    <input id="artists" placeholder="Favorite artists (e.g. Drake, Radiohead)" />
+    <input id="genres" placeholder="Genres (e.g. hip hop, indie)" />
+    <input id="mood" placeholder="Mood (e.g. chill, energetic)" />
+
+    <button onclick="getRecommendations()">Get Recommendations</button>
+
+    <ul id="results"></ul>
+  </div>
+
+  <script>
+    async function getRecommendations() {
+      const artists = document.getElementById("artists").value;
+      const genres = document.getElementById("genres").value;
+      const mood = document.getElementById("mood").value;
+
+      const resultsList = document.getElementById("results");
+      resultsList.innerHTML = "<li>Loading...</li>";
+
+      try {
+        const response = await fetch("/recommend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ artists, genres, mood })
+        });
+
+        const data = await response.json();
+        resultsList.innerHTML = "";
+
+        data.forEach(song => {
+          const li = document.createElement("li");
+          li.innerHTML = `
+            <a href="${song.spotify_url || '#'}" target="_blank">
+              ${song.song} — ${song.artist}
+            </a>
+          `;
+          resultsList.appendChild(li);
+        });
+
+      } catch (err) {
+        resultsList.innerHTML = "<li>Backend not connected yet.</li>";
+      }
+    }
+  </script>
+
+</body>
+</html>
