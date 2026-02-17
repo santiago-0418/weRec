@@ -8,16 +8,14 @@ from langchain_groq import ChatGroq
 PROMPT_TEMPLATE = """
 You are a music recommendation assistant.
 
-User likes these artists: {artists}
+User likes: {liked}
+User dislikes: {disliked}
+
 Preferred genres: {genres}
 Mood: {mood}
 
-Return 5 song recommendations from different artists similar to the user's listed artists.
-Do NOT include the original artists.
-Return ONLY valid JSON.
-Do NOT include explanations or markdown.
-
-Format exactly like this:
+Return 8 songs by different artists NOT previously liked or disliked.
+Return ONLY valid JSON in the format:
 [
   {{ "artist": "Artist name", "song": "Song title" }},
   ...
@@ -34,8 +32,10 @@ class handler(BaseHTTPRequestHandler):
             artists = data.get("artists", "")
             genres = data.get("genres", "")
             mood = data.get("mood", "")
+            liked = data.get("liked", [])
+            disliked = data.get("disliked", [])
 
-            # Initialize LLM inside handler
+            # Initialize LLM
             llm = ChatGroq(
                 model="openai/gpt-oss-20b",
                 api_key=os.environ["GROQ_API_KEY"],
@@ -43,7 +43,8 @@ class handler(BaseHTTPRequestHandler):
             )
 
             prompt = PROMPT_TEMPLATE.format(
-                artists=artists,
+                liked=json.dumps(liked),
+                disliked=json.dumps(disliked),
                 genres=genres,
                 mood=mood
             )
@@ -51,7 +52,7 @@ class handler(BaseHTTPRequestHandler):
             raw_output = llm.invoke(prompt)
             text = raw_output.content.strip()
 
-            # Remove ```json blocks if present
+            # Remove ```json markdown if present
             if text.startswith("```"):
                 text = text.strip("`").replace("json", "").strip()
 
@@ -64,10 +65,16 @@ class handler(BaseHTTPRequestHandler):
             try:
                 recommendations = json.loads(text)
             except Exception:
+                # fallback dummy recommendations
                 recommendations = [
                     {"artist": "The Weeknd", "song": "Blinding Lights"},
                     {"artist": "Arctic Monkeys", "song": "Do I Wanna Know?"},
-                    {"artist": "Frank Ocean", "song": "Nikes"}
+                    {"artist": "Frank Ocean", "song": "Nikes"},
+                    {"artist": "Dua Lipa", "song": "Levitating"},
+                    {"artist": "Tame Impala", "song": "The Less I Know the Better"},
+                    {"artist": "Kendrick Lamar", "song": "HUMBLE."},
+                    {"artist": "Billie Eilish", "song": "Happier Than Ever"},
+                    {"artist": "Doja Cat", "song": "Say So"}
                 ]
 
             token = self.get_spotify_token()
@@ -124,14 +131,15 @@ class handler(BaseHTTPRequestHandler):
         resp = requests.get(url, headers=headers)
         items = resp.json().get("tracks", {}).get("items", [])
 
+        # Try to match exact artist first
         for t in items:
             if artist.lower() in [a["name"].lower() for a in t["artists"]]:
                 return {
                     "spotify_url": t["external_urls"]["spotify"],
-                    "album_image_url": t["album"]["images"][1]["url"]  # 300x300
+                    "album_image_url": t["album"]["images"][1]["url"]
                 }
 
-        # fallback to first track if no exact artist match
+        # fallback to first track
         if items:
             return {
                 "spotify_url": items[0]["external_urls"]["spotify"],

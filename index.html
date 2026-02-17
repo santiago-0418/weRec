@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>weRec Music Disovery Tool</title>
+  <title>weRec Music Discovery Tool</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -52,86 +52,146 @@
       background: #16a34a;
     }
 
-    ul {
+    /* Card container for swipeable cards */
+    #results {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
       margin-top: 1rem;
-      padding-left: 1rem;
     }
 
-    li {
-      margin-bottom: 0.5rem;
+    .song-card {
+      display: flex;
+      align-items: center;
+      background: #1e293b;
+      padding: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     }
 
-    a {
+    .song-card img {
+      border-radius: 10px;
+      margin-right: 1rem;
+    }
+
+    .song-card a {
       color: #38bdf8;
       text-decoration: none;
+    }
+
+    .song-card button {
+      margin-top: 0.5rem;
+      margin-right: 0.5rem;
+      width: 80px;
+      padding: 0.3rem;
     }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <h1>weRec The Music Disovery Tool</h1>
+    <h1>weRec Music Discovery Tool</h1>
 
     <input id="artists" placeholder="Favorite artists (e.g. Drake, Radiohead)" />
     <input id="genres" placeholder="Genres (e.g. hip hop, indie)" />
     <input id="mood" placeholder="Mood (e.g. chill, energetic)" />
 
-    <button onclick="getRecommendations()">Get Recommendations</button>
+    <button id="start-btn">Get Recommendations</button>
 
-    <div id="results" style="display:flex; flex-direction:column; gap:1rem; margin-top:1rem;"></div>
+    <div id="results"></div>
   </div>
 
   <script>
-    async function getRecommendations() {
-    const artists = document.getElementById("artists").value;
-    const genres = document.getElementById("genres").value;
-    const mood = document.getElementById("mood").value;
+    let recommendations = [];
+    let index = 0;
+    let liked = [];
+    let disliked = [];
+    let fetching = false;
 
-    const resultsDiv = document.getElementById("results");
-    resultsDiv.innerHTML = "<p>Loading...</p>";
+    function showLoading() {
+      const container = document.getElementById("results");
+      container.innerHTML = `<p style="text-align:center; color:#38bdf8;">Loading recommendations...</p>`;
+    }
 
-    try {
-      const response = await fetch("/api/index", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ artists, genres, mood })
-      });
+    async function fetchRecommendations(batchSize = 8) {
+      if(fetching) return;
+      fetching = true;
+      showLoading();
 
-      const data = await response.json();
-      resultsDiv.innerHTML = "";
+      const artists = document.getElementById("artists").value;
+      const genres = document.getElementById("genres").value;
+      const mood = document.getElementById("mood").value;
 
-      data.forEach(song => {
-        const card = document.createElement("div");
-        card.style.display = "flex";
-        card.style.alignItems = "center";
-        card.style.background = "#1e293b";
-        card.style.padding = "0.8rem";
-        card.style.borderRadius = "10px";
-        card.style.boxShadow = "0 2px 10px rgba(0,0,0,0.3)";
-        card.style.gap = "0.8rem";
+      try {
+        const resp = await fetch("/api/index", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ artists, genres, mood, liked, disliked })
+        });
 
-        const img = document.createElement("img");
-        img.src = song.album_image_url || "";
-        img.width = 64;
-        img.height = 64;
-        img.style.borderRadius = "6px";
+        const newRecs = await resp.json();
+        recommendations = recommendations.concat(newRecs); // append to queue
+        fetching = false;
+        showCard();
+      } catch (err) {
+        fetching = false;
+        const container = document.getElementById("results");
+        container.innerHTML = `<p style="text-align:center; color:red;">Failed to load recommendations.</p>`;
+      }
+    }
 
-        const info = document.createElement("div");
-        info.innerHTML = `
+    function showCard() {
+      const container = document.getElementById("results");
+      container.innerHTML = "";
+
+      if(index >= recommendations.length){
+        showLoading();
+        fetchRecommendations();
+        return;
+      }
+
+      const song = recommendations[index];
+
+      const card = document.createElement("div");
+      card.className = "song-card";
+      card.innerHTML = `
+        <img src="${song.album_image_url}" width="150" height="150">
+        <div>
           <strong>${song.song}</strong><br>
           ${song.artist}<br>
-          <a href="${song.spotify_url}" target="_blank" style="color:#38bdf8;">Listen on Spotify</a>
-        `;
+          <a href="${song.spotify_url}" target="_blank">Listen on Spotify</a>
+          <div>
+            <button onclick="swipe('dislike')">❌ Dislike</button>
+            <button onclick="swipe('like')">❤️ Like</button>
+          </div>
+        </div>
+      `;
 
-        card.appendChild(img);
-        card.appendChild(info);
-        resultsDiv.appendChild(card);
-      });
-
-    } catch (err) {
-      resultsDiv.innerHTML = "<p>Backend not connected yet.</p>";
+      container.appendChild(card);
     }
-  }
+
+    function swipe(action){
+      const song = recommendations[index];
+      if(action === "like") liked.push(`${song.song} by ${song.artist}`);
+      else disliked.push(`${song.song} by ${song.artist}`);
+
+      index++;
+      showCard();
+
+      // Pre-fetch next batch when near the end
+      if(index >= recommendations.length - 3 && !fetching){
+        fetchRecommendations();
+      }
+    }
+
+    document.getElementById("start-btn").addEventListener("click", () => {
+      // reset session
+      recommendations = [];
+      index = 0;
+      liked = [];
+      disliked = [];
+      fetchRecommendations();
+    });
   </script>
 
 </body>
